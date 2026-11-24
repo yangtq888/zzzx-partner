@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>整治中心合作伙伴查询系统</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #f4f6f9; color: #1f2d3d; }
+  header { background: linear-gradient(135deg,#1e5eff,#0a2fa8); color:#fff; padding: 22px 28px; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header p { font-size: 13px; opacity: .85; margin-top: 6px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 18px; }
+  .stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .stat { background:#fff; border-radius:10px; padding:12px 18px; box-shadow:0 1px 4px rgba(0,0,0,.06); flex:1; min-width:140px; }
+  .stat .num { font-size:22px; font-weight:700; color:#1e5eff; }
+  .stat .lbl { font-size:12px; color:#7a8699; margin-top:2px; }
+  .filters { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,.06); margin-bottom:16px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+  .row:last-child { margin-bottom:0; }
+  input, select { padding:9px 12px; border:1px solid #d6dce5; border-radius:8px; font-size:14px; outline:none; background:#fbfcfe; }
+  input:focus, select:focus { border-color:#1e5eff; background:#fff; }
+  .search-main { flex:2; min-width:240px; }
+  .search-qual { flex:2; min-width:240px; }
+  select { min-width:150px; }
+  .btn { padding:9px 16px; border:none; border-radius:8px; cursor:pointer; font-size:14px; background:#eef2f8; color:#374151; }
+  .btn:hover { background:#e0e7f3; }
+  .btn-primary { background:#1e5eff; color:#fff; }
+  .btn-primary:hover { background:#1648c8; }
+  .result-info { font-size:13px; color:#7a8699; margin:4px 0 12px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:14px; }
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,.06); cursor:pointer; transition:.15s; border-left:4px solid #1e5eff; }
+  .card:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(30,94,255,.15); }
+  .card .name { font-size:15px; font-weight:600; margin-bottom:6px; }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .tag { font-size:12px; padding:2px 8px; border-radius:20px; background:#eef4ff; color:#1e5eff; }
+  .tag.gray { background:#f1f3f7; color:#5a6b85; }
+  .tag.warn { background:#fff4e6; color:#d97706; }
+  .meta { font-size:12.5px; color:#5a6b85; line-height:1.7; }
+  .meta b { color:#374151; font-weight:500; }
+  .qual-line { margin-top:6px; font-size:12.5px; color:#0a7a4b; background:#f0fbf5; padding:6px 8px; border-radius:6px; }
+  mark { background:#fff3a3; padding:0 2px; border-radius:3px; }
+  /* 弹窗 */
+  .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:20px; z-index:99; }
+  .modal-bg.show { display:flex; }
+  .modal { background:#fff; border-radius:14px; max-width:820px; width:100%; max-height:88vh; overflow:auto; }
+  .modal-head { position:sticky; top:0; background:#fff; padding:18px 22px; border-bottom:1px solid #eef1f6; display:flex; justify-content:space-between; align-items:start; }
+  .modal-head h2 { font-size:17px; }
+  .modal-body { padding:18px 22px 26px; }
+  .field { margin-bottom:14px; }
+  .field .k { font-size:12px; color:#7a8699; margin-bottom:3px; }
+  .field .v { font-size:13.5px; line-height:1.75; white-space:pre-wrap; }
+  .close { cursor:pointer; font-size:22px; color:#94a3b8; line-height:1; background:none; border:none; }
+  .empty { text-align:center; color:#94a3b8; padding:60px 0; font-size:14px; }
+  @media (max-width:600px){ .cards{grid-template-columns:1fr;} header{padding:16px;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>整治中心合作伙伴查询系统</h1>
+  <p>支持企业名称、业务领域、资质关键词检索（如输入"土地规划"可筛出所有具备该资质的单位）</p>
+</header>
+
+<div class="wrap">
+  <div class="stats" id="stats"></div>
+
+  <div class="filters">
+    <div class="row">
+      <input class="search-main" id="kw" placeholder="🔍 搜索单位名称 / 联系人 / 业务方向 / 合作案例…">
+      <input class="search-qual" id="qual" placeholder="🏅 资质检索，如：土地规划、测绘甲级、CMA、地质灾害…">
+    </div>
+    <div class="row">
+      <select id="fType"><option value="">全部单位类型</option></select>
+      <select id="fIndustry"><option value="">全部行业/领域</option></select>
+      <select id="fCoop"><option value="">全部合作方向</option></select>
+      <select id="fMode"><option value="">全部合作方式</option></select>
+      <button class="btn" id="reset">重置</button>
+      <button class="btn btn-primary" id="export">导出筛选结果</button>
+    </div>
+  </div>
+
+  <div class="result-info" id="info"></div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="mTitle"></h2>
+      <button class="close" id="mClose">×</button>
+    </div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+
+<script>
+/* ========== 数据区：把 Excel 每行转成对象，同单位多行已合并 ========== */
+const DATA = [
+  {id:1,name:"重庆地质矿产研究院",type:"事业单位",industry:["生态修复"],contact:"张华莲",phone:"15922638080",
+   intro:"重庆市规划和自然资源局直属公益二类科研事业单位，市属重点科研院所。主要从事地质矿产、生态修复、地灾防治、耕地保护等自然资源领域科研攻关和技术支撑服务。",
+   qualification:"拥有检验检测、信息安全资质认证(CCRC)、地质灾害防治、司法鉴定许可、测绘、信息技术服务标准符合性(ITSS)、土地规划、清洁生产审核等以甲级、乙级为主的资质证书10余项",
+   research:"山水林田湖草沙一体化保护修复、矿山生态修复、全域土地综合整治、生态监测评估、生态系统碳汇绿色低碳等领域的政策研究与制度创新、技术研发与标准研究、成果转化与应用推广",
+   coop:["工程咨询"],mode:["技术服务"],
+   resources:"生态修复领域核心技术成果（发明专利、专著、标准规范）；省部级科研平台与多学科人才梯队；西南丘陵山地、流域、矿区等多场景工程实践与试点示范场景、地质生态本底数据库",
+   cases:"联合编制行业标准《国土空间生态保护修复工程成效评估规范》等；支撑新疆哈密陶家宫全域土地综合整治；成果获自然资源科学技术奖科技进步一等奖1项、二等奖2项",
+   dept:"系统修复部 / 土地复垦部 / 科技发展处",center:"周妍 13439788699；王敬 13522563893；朱晓华 13520168100",remark:"",date:""},
+
+  {id:2,name:"广西国土资源规划设计集团有限公司",type:"国有企业",industry:["国土空间规划"],contact:"代振",phone:"15296492861",
+   intro:"员工700余人，高级职称、研究生学历占比均超50%。致力于为自然资源、城乡建设和低碳智慧领域提供智慧解决方案，构建“规划设计咨询+投资建设运营”全链条服务模式。",
+   qualification:"土地规划、城乡规划、测绘、矿产资源规划、工程设计建材行业等6项甲级资质；广西首家土地规划、城乡规划“双甲”资质单位；国家高新技术企业、国家级科改企业",
+   research:"“1+3”科研创新平台（广西零碳智能化重点实验室等），获省部级奖项70多项；业务覆盖多个省份",
+   coop:["成果转化"],mode:["技术服务"],
+   resources:"技术成果、专利、人才、设备、场地、数据、资金、市场渠道等",
+   cases:"",dept:"",center:"代振（全域土地综合整治中心主任）15296492861，邮箱546174946@qq.com",remark:"",date:"2026-09-08"},
+
+  {id:3,name:"中铁建设集团北京工程有限公司",type:"国有企业",industry:["其他"],contact:"罗洋",phone:"13811566005",
+   intro:"主要从事房建总承包施工工作。",qualification:"建筑工程特级资质，建筑装修装饰、市政公用工程、钢结构、环保工程等专业承包贰级；起重设备安装、地基基础、机电工程等壹级",
+   research:"房屋建筑施工",coop:["其他"],mode:["其他"],resources:"施工领域相关资源、人才",cases:"暂无",
+   dept:"科技处",center:"朱晓华 13520168100",remark:"",date:"2026-09-09"},
+
+  {id:4,name:"中咨规划设计研究有限公司",type:"国有企业",industry:["工程咨询"],contact:"周荣正",phone:"13501176870",
+   intro:"中国国际工程咨询公司旗下唯一具有设计资质的企业，业务范围覆盖全国各省市自治区。",qualification:"工程咨询单位甲级资信",
+   research:"项目谋划、全过程咨询",coop:["共建平台"],mode:["技术服务"],resources:"项目谋划、资金筹措、产业导入",
+   cases:"全国多省市全域土地综合整治项目推进中",dept:"",center:"",remark:"",date:""},
+
+  {id:5,name:"北京地星伟业科技股份有限公司",type:"民营企业",industry:["生态修复"],contact:"林常春、张述升",phone:"15001335292、13701338088",
+   intro:"成立于2003年，致力于3S、大数据与云计算、数字国土、智慧城市、多维时空信息管理等领域技术研究和应用系统研发，集软件研发、数据服务及技术咨询于一体的高新技术企业。",
+   qualification:"高新技术企业、地灾勘查设计甲级、测绘甲级、城乡规划乙级、土地规划乙级；ISO9001/14001/OHSAS18001/ISO27001认证",
+   research:"土地调查与测绘、国土空间规划、地质灾害评估勘察设计、遥感监测、全域综合整治、高标准基本农田整理设计",
+   coop:["横向课题","纵向课题申报","工程咨询","数据共享","人才联合培养","共建平台"],
+   mode:["技术/专利许可","委托研发","联合研发","成果转让","技术服务","人才共享"],
+   resources:"高级工程师15名；多项国土资源调查、地理信息处理、遥感图像处理等专利",
+   cases:"无",dept:"国土整治中心科技处",center:"朱晓华 13520168100",remark:"",date:"2026-09-09"},
+
+  {id:6,name:"青岛地矿岩土工程有限公司",type:"国有企业",industry:["地灾防治"],contact:"卓宝龙",phone:"18766266067",
+   intro:"各类配套设备300余台（套），为青岛环胶州湾高速、胶州湾大桥、厦门机场、广东油气管道及国外重点项目提供勘察及地基基础施工服务，数百项成果获省市勘察设计奖、科技进步奖。",
+   qualification:"工程勘察综合类甲级、建筑工程/市政公用工程施工总承包贰级、地基基础工程专业承包壹级、土工试验甲级、地质灾害治理工程甲级施工、测绘甲级、ISO体系认证",
+   research:"岩土工程勘察设计、地基基础与深基坑施工、水文地质勘察、矿山生态修复、工程测绘与岩土监测；优势方向边坡治理、地质灾害综合防治、岩土测试监测",
+   coop:["成果转化"],mode:["技术服务"],resources:"岩土工程、地质灾害治理、矿山生态修复相关专利及软著；正高级工程师、注册岩土师等人才；钻探、原位测试、自动化监测设备及土工试验室；大量项目数据与工程案例",
+   cases:"",dept:"",center:"",remark:"无",date:"2026-09-09"},
+
+  {id:7,name:"青岛地质工程勘察院(青岛地质勘查开发局)",type:"事业单位",industry:["生态修复"],contact:"卓宝龙",phone:"18766266067",
+   intro:"山东省地矿局直属公益二类事业单位，创建于1986年。主要承担基础性、公益性、战略性地质调查和矿产资源勘查，水文、生态环境、城市、海洋、农业、旅游、工程地质调查及勘查，生态地质环境监测和地质灾害调查评价、监测、预警、防治、应急处置技术支持。",
+   qualification:"地质灾害评估和治理工程勘查设计甲级、监理甲级；水土保持方案编制三星级、监测四星级；水资源论证乙级；测绘乙级；ISO体系认证",
+   research:"基础性公益性地质调查、矿产勘查、工程地质与水文地质勘察、地质灾害调查监测防治、矿山生态修复、城市地质、海洋地质、测绘地理信息与地质试验检测；优势方向滨海城市地下空间地质安全、地质灾害预警、陆海统筹生态地质",
+   coop:["技术研发"],mode:["技术服务"],resources:"地质、岩土相关专利、软著及省市科技成果；博士、正高级工程师、注册师等人才；钻探、物探、自动化监测设备及CMA试验中心；大量区域地质调查与地灾项目数据；多项地质甲级资质与科研平台",
+   cases:"",dept:"",center:"",remark:"无",date:"2026-09-09"},
+
+  {id:8,name:"河南省第四地质矿产调查院有限公司",type:"国有企业",industry:["国土整治"],contact:"刘宇",phone:"13803819340",
+   intro:"组建于1956年，河南省豫地科技集团直属综合性国有地勘企业。主营矿产勘查、生态修复、地质灾害防治及地质技术服务，拥有甲级资质9项、专业技术人员268人，累计探明永夏煤田等矿产储量71.5亿吨。",
+   qualification:"地质灾害工程勘察设计监理甲级、施工乙级；电力/矿山/市政公用工程施工总承包贰级；测绘甲级；环境生态治理乙级；土地规划乙级；城乡规划乙级；CMA检验检测；煤炭行业生态修复能力证书甲级等",
+   research:"矿产资源勘查与成矿规律、水文工程环境地质、地球物理与地球化学勘查、地质灾害调查评价与监测预警、矿山生态修复与土地整治、地质测绘信息化及钻探工程；在分层取样、地热钻探、地下水污染防治等方面拥有核心专利",
+   coop:["工程咨询"],mode:["联合研发"],resources:"投融资能力（矿权获取、合资公司、项目联合体）；郑州总部及商丘、永城三个生产科研基地；多项发明专利和软著；可联合申报国家级、省部级科研课题；可互建产学研基地",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:9,name:"河南省中宇地质工程勘察院有限公司",type:"国有企业",industry:["生态修复"],contact:"刘宇",phone:"13803819340",
+   intro:"成立于1989年，注册资本2036万元，河南省第四地质矿产调查院下属、豫地科技集团成员国有独资企业。主营岩土工程勘察、水文地质、地质灾害治理、矿产勘查及生态修复，获AAA信用等级及省部级科技奖项20余项。",
+   qualification:"地质灾害治理工程施工甲级、水文地质勘察甲级、岩土工程（勘察）甲级、地质灾害评估和治理工程勘查设计乙级、水井施工壹级",
+   research:"岩土工程勘察、水文地质与环境地质、地质灾害勘查设计施工、矿产资源勘查与非常规天然气成藏规律、历史遗留矿山生态修复、国土空间规划及测绘信息化；拥有城市地下水污染防治、非开挖管道修复等专利及软件著作权",
+   coop:["其他"],mode:["技术服务"],resources:"在职职工554人，专业技术人员303人（教授级高工8人、高级61人、中级172人、注册岩土工程师6人、一/二级建造师38人）；施工及检测设备仪器600余台套",
+   cases:"参与嵩山南麓、太行山东麓等省级生态修复示范工程；获河南省优质测绘工程一等奖、国土资源科技进步奖等20余项",dept:"",center:"",remark:"",date:""},
+
+  {id:10,name:"山东省鲁南地质工程勘察院（山东省地质矿产勘查开发局第二地质大队）",type:"事业单位",industry:["生态修复"],contact:"薛良方",phone:"18054555189",
+   intro:"位于济宁市兖州区，隶属山东省地矿局，全国知名国有综合地勘单位，全国百强地质队排名第七。主要从事自然资源与环境调查、地质找矿、清洁能源勘查、生态环境修复、测绘地理信息与地质大数据开发应用等。",
+   qualification:"地质灾害治理工程勘查、设计、监理、评估甲级；测绘甲级、土地规划甲级、水资源论证、司法鉴定机构、水文水资源调查评价、四体系认证、钻探、物探、实验测试等",
+   research:"基础性公益性地质调查与矿产资源勘查；自然资源调查评价确权规划技术支撑；地质灾害调查评价监测预警防治与应急处置技术支撑；检验检测与地质实验测试；地质环境监测、国土空间规划、测绘地理信息；地学研究",
+   coop:["技术研发"],mode:["技术服务"],resources:"博士、硕士、二级研究员、正高级工程师、注册师等人才；地质水文专利软著及国家级省市级科技成果；钻探物探自动化监测设备及CMA试验中心；大量区域地质调查、水文地质、地灾项目数据；多项地质甲级资质与省部级科研平台",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:11,name:"山东省地矿建设有限公司",type:"国有企业",industry:["地灾防治"],contact:"薛良方",phone:"18054555189",
+   intro:"位于济宁市兖州区，始建于1991年，由原山东省鲁南地质工程勘察院、济宁地质工程勘察院改制整合成立，2022年11月更名。市场遍及全国，并在老挝、刚果、塞内加尔等国开展岩土工程勘察、工程测量、基础施工等业务。",
+   qualification:"地质灾害治理工程施工甲级、工程勘察综合甲级、市政公用工程施工总承包贰级、测绘",
+   research:"矿产资源勘查；金属与非金属矿产资源地质勘探；建设工程勘察与施工；地质灾害危险性评估、治理工程施工/设计/勘查；测绘服务；建设工程设计；房地产开发经营",
+   coop:["成果转化"],mode:["技术服务"],resources:"可提供勘察—设计—施工一体化服务，具有较强的跨区域项目实施能力",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:12,name:"中国电建市政建设集团有限公司",type:"国有企业",industry:["国土整治"],contact:"李兴昌",phone:"18702239558",
+   intro:"中国电建旗下特级企业，具备大型基础设施投资建设、工程承包与运营管理能力，实施过多项土地整治、土壤改良修复、高标准农田项目。",
+   qualification:"市政公用工程施工、水利水电工程施工总承包特级资质；建筑、公路、机电工程施工总承包壹级资质",
+   research:"土地整治、土壤改良修复、高标准农田项目实施",coop:["其他"],mode:["其他"],
+   resources:"黑土地保护、盐碱地改良耕地复垦等项目实战业绩；可整合内外部咨询资源一体化实施全域土地综合整治类项目；依托央企资金、项目管理及跨区域资源调配优势，提供方案设计—建设实施—运营管护一体化支撑",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:13,name:"中国电建集团成都勘测设计研究院有限公司",type:"国有企业",industry:["生态修复"],contact:"林征",phone:"18583350822",
+   intro:"中国电建特级子企业、国家级大型综合勘测设计科研企业，业务覆盖能源电力、水务环境和基础设施，提供规划咨询、勘察设计、施工建造、投资运营全产业链一体化服务。",
+   qualification:"工程设计综合甲级、工程勘察综合类甲级、咨询综合甲级、监理综合甲级（四综甲）；质量/环境/职业健康安全管理体系认证；电力、水利水电、市政公用工程施工总承包一级等",
+   research:"生态修复与水环境综合治理；水利水电与新能源工程；国土空间与流域规划；工程勘察设计、监测与数字化；地质灾害防治与水土保持",
+   coop:["工程咨询"],mode:["技术服务"],resources:"规划咨询、勘察设计、工程总承包与项目管理能力；生态修复、水环境治理、遥感监测及数字化平台技术；国家级、省级科研平台，专业人才和专利技术资源",
+   cases:"生态基础设施构建与基础设施提升方案编制（合同编号：2025-C54-01）",dept:"",center:"",remark:"",date:""},
+
+  {id:14,name:"中国电建集团贵阳勘测设计研究院有限公司",type:"国有企业",industry:["国土整治"],contact:"祝家顺",phone:"18985189391",
+   intro:"中国电建核心成员企业，可提供生态环境、土地整治、高标准农田、基础设施等项目规划、勘测设计、科研咨询、EPC总承包全生命周期一体化技术服务。",
+   qualification:"工程勘察、设计、咨询、监理4项综合甲级资质；城乡规划（国土空间规划）编制、测绘、质量检测等20多项甲级资质；水利水电、市政、建筑、电力等行业工程施工总承包壹级资质",
+   research:"岩溶地区工程地质处置、生态修复与水环境治理、土地整治与土壤改良、工程数字孪生与智能建造、工程病害诊断及防灾减灾技术研究",
+   coop:["工程咨询"],mode:["技术服务"],resources:"土地整治、土壤改良修复、高标准农田项目规划策划、勘测设计、科研试验、数字化管控、EPC总承包及后期咨询全链条技术服务；多专业人才团队、自有农田数字化系统与大量同类项目业绩；可联动电建集团资源统筹项目落地",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:15,name:"山东省地矿工程勘察院（山东省地质矿产勘查开发局八〇一水文地质工程地质大队）",type:"事业单位",industry:["生态修复"],contact:"杨聪聪",phone:"15106996693",
+   intro:"成立于1958年，山东省地矿局所属正处级公益二类事业单位，位于济南。以水文地质、工程地质、环境地质为基础，以生态地质、地热地质、关键矿产、地质装备为特色，面向保泉供水、城市地质、清洁能源、水土污染、北方岩溶、“双碳”地质和地质大数据等方向提供科研与技术服务。",
+   qualification:"地质勘查甲级、工程咨询甲级、地质灾害危险性评估及治理工程设计/勘查/监理甲级、土工实验室甲级等10余个甲级资质；测绘甲级、物探乙级、外汇登记管理证书",
+   research:"泉水保护与北方岩溶水文学、地下水资源与环境监测预警、水土污染与场地修复、生态修复与矿山/塌陷区治理、清洁能源与地热地质、地质灾害与城市安全、城市地质与地质大数据、关键矿产与常规资源勘查",
+   coop:["工程咨询"],mode:["委托研发"],resources:"技术成果、人才、设备、场地、数据",cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:16,name:"山东省水工环地质工程有限公司",type:"国有企业",industry:["地灾防治"],contact:"杨聪聪",phone:"15106996693",
+   intro:"1990年3月成立，注册资本9465.29万元，注册地址济南市历下区，国有控股专业技术服务企业，2024—2025年入选高新技术企业。以水文地质、工程地质、环境地质为核心，兼顾地质灾害、矿产资源、地热新能源、测绘检测、岩土施工与地质信息化。",
+   qualification:"工程勘察综合类甲级、地质灾害治理施工甲级、地基与基础工程专业承包壹级、建筑机电安装/环保工程专业承包贰级、安全生产许可；质量/环境/职业健康安全及信息安全管理体系认证",
+   research:"区域水文地质调查、水源地勘查、岩土工程勘查、基坑与地基处理、基础施工、土壤污染调查与修复、地下水污染风险管控、水污染治理、环保监测、生态资源监测、环境应急治理、地质灾害治理施工、历史遗留废弃矿山生态修复、地热勘查与地热井施工",
+   coop:["工程咨询"],mode:["委托研发"],resources:"技术成果、人才、设备、场地、数据",cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:17,name:"北京偶然环境科技有限公司",type:"民营企业",industry:["生态修复"],contact:"邢益玮",phone:"18811317193",
+   intro:"地质灾害治理、土壤污染治理、生态系统修复；规划设计管理、工程咨询管理服务。",qualification:"高新技术企业",
+   research:"生态修复、废弃矿山整治、土壤治理等",coop:["工程咨询"],mode:["技术服务"],resources:"工程设计及施工咨询服务及管理",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:18,name:"中材地质工程勘查研究院有限公司",type:"国有企业",industry:["地灾防治"],contact:"隗春艳",phone:"13581958754",
+   intro:"地质灾害治理工程勘查、设计、施工、地质灾害危险性评估、国土空间规划编制、土壤污染治理与修复服务、土地整治服务、环保咨询服务、土壤污染环境防治服务等。",
+   qualification:"测绘资质、检验检测机构资质（CMA）、工程设计资质、ISO体系认证",
+   research:"地质灾害勘查、设计、施工等",coop:["技术研发"],mode:["技术服务"],resources:"地质灾害治理、土壤修复",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:19,name:"中国地质调查局西安矿产资源调查中心",type:"事业单位",industry:["生态修复"],contact:"王永功",phone:"18501371452",
+   intro:"中国地质调查局自然资源综合调查指挥中心直属事业单位，主要承担基础地质调查和战略性矿产资源调查、评价、勘查以及自然资源调查、国土空间生态保护支撑调查等工作。",
+   qualification:"地质灾害治理工程监理乙级、地质灾害评估和治理工程勘查设计乙级；测绘乙级（摄影测量与遥感、工程测量、界线与不动产测绘、地理信息系统工程）；检验检测机构资质（国家级CMA）；实验室认可(CNAS)；安全生产许可证；ISO三体系认证",
+   research:"基础地质调查和战略性矿产资源调查、评价、勘查；自然资源调查；国土空间生态保护支撑调查；向社会提供公益性服务",
+   coop:["成果转化","技术研发","横向课题","纵向课题申报","工程咨询","数据共享","人才联合培养","共建平台","中试熟化","产业化落地"],
+   mode:["技术/专利许可","委托研发","联合研发","成果转让","技术服务","设备平台共享"],
+   resources:"“成矿区划—区域地质调查—矿产地质调查—区块优选—重点勘查—矿山环境”地质矿产全链条业务体系；生态保护修复、国土安全地质灾害等领域工作能力",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:20,name:"北京首创生态环保集团有限公司",type:"国有企业",industry:["生态修复"],contact:"来璐",phone:"13699143325",
+   intro:"截至2025年末水处理能力2728万吨/日，生活垃圾处理能力1498万吨/年，累计实施86个水环境服务项目、90余个大气环境综合治理项目、700余项节能降碳服务；业务覆盖环保服务全产业链，服务国内29个省区市190余座城市超1亿人，资产规模近1100亿元。",
+   qualification:"检验检测机构资质（CMA）、工程设计资质、工程施工、环境管理体系认证、污水和垃圾处置、公共卫生及其他环境保护服务等",
+   research:"污水治理、垃圾焚烧、大气治理、矿山修复等环境服务以及节能降碳服务",coop:["技术服务","产业化落地"],mode:["投资","技术服务"],
+   resources:"环保服务全产业链中相应的技术成果、专利、人才、设备、场地、数据、资金、市场渠道等",
+   cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:21,name:"中机三勘岩土工程有限公司",type:"国有企业",industry:["地灾防治","测绘地理信息"],contact:"赵紫团",phone:"13811652835",
+   intro:"主营业务：地质灾害危险性评估，地质灾害治理工程勘查/设计/施工，建设工程勘察与施工，测绘服务。",
+   qualification:"地质灾害评估和治理工程勘察设计资质、地质灾害治理工程施工资质、工程勘察综合甲、工程勘察劳务类（工程钻探、凿井）、测绘资质（工程测量甲级及多项乙级）、建筑业企业施工劳务备案证书",
+   research:"工程勘察、水文地质勘察、地质灾害治理工程勘查、凿井施工、工程测试、岩土水试验、地质灾害危险性评估、深基坑/边坡支护/地基处理/地质灾害治理/降水设计、桩基施工、基坑支护施工、建筑纠偏、土石方工程、控制测量、岩土工程监测、沉降观测、监测自动化、地形测绘、管线探测与检测、实景三维建模、规划测量、日照测量、房产测量、摄影测量与遥感、成孔检测、桩基检测、地基承载力检测、剪切波速测试、探地雷达检测等",
+   coop:["成果转化","产业化落地"],mode:["技术/专利许可","其他"],resources:"",cases:"",dept:"",center:"",remark:"",date:""},
+
+  {id:22,name:"中南建筑设计院股份有限公司",type:"国有企业",industry:["工程咨询","国土空间规划","地灾防治","测绘地理信息","其他"],contact:"董金华",phone:"15926281368",
+   intro:"建于1952年，新中国最早成立的六大区域综合建筑设计院之一。聚焦工程咨询设计、设计施工总承包主业，业务涵盖咨询、测绘、规划、科研、环评、勘察、设计、审查、监理、项目管理与工程总承包、招标代理、质量检测、安全评价等。73年来海内外设计完成30000余项工程，1500余项获国际、国家、省部级大奖。",
+   qualification:"城乡规划（国土空间规划）甲级、工程勘察专业类岩土工程甲级、工程咨询单位甲级、建筑行业（建筑工程）甲级、市政行业（给水工程）专业甲级、风景园林工程设计专项甲级、建筑工程施工总承包壹级、地基基础工程专业承包壹级、房屋建筑工程监理甲级、地质灾害评估和治理工程勘查设计/施工/监理乙级、乙级测绘资质、三体系认证、高新技术企业、信用评价AAA等30余项",
+   research:"工程咨询设计、设计施工总承包；咨询、测绘、规划、科研、环评、勘察、设计、审查、监理、项目管理与工程总承包、招标代理、质量检测、安全评价等全过程工程技术与管理服务",
+   coop:["工程咨询","其他"],mode:["技术服务"],
+   resources:"技术成果、施工服务",
+   cases:"楚纪南故城国家考古遗址公园规划；黄石西塞山区城市更新专项规划；青岛临空上合生态农业科技港规划设计；天门新区片区规划与控规；巴东三峡库区突发地质灾害应急救援处置能力建设项目初设/地勘；地质灾害智慧勘查及监测预警平台研发；团风县上巴河镇全域国土综合整治EPC；湖北疾控中心综合能力提升EPC等",
+   dept:"",center:"",remark:"",date:""},
+
+  {id:23,name:"中南安全环境技术研究院股份有限公司",type:"国有企业",industry:["工程咨询","生态修复","环保水利"],contact:"董金华",phone:"15926281368",
+   intro:"隶属中南建筑设计院，2014年12月成立。环境板块覆盖环保咨询、专项规划、环保管家、环境治理、环境检测、生态修复与生物多样性、风险预案、水土保持；质量板块覆盖中心实验室、交竣工验收、地基基础检测、路况技术评定、桥梁荷载试验、桥梁及隧道施工监控、桥梁健康监测等。",
+   qualification:"检验检测机构资质认定（CMA）；公路水运工程质量检测机构资质（公路工程乙级）；公路水运工程监理企业资质（公路工程乙级）；公路水运工程试验检验机构等级证书（桥梁隧道专项、综合甲级）；乙级测绘；工程咨询单位乙级资信；辐射安全许可证；三体系认证；水土保持方案编制/监测水平评价证书；环境工程（污染修复）乙级/市政（给排水）乙级；环境工程设计专项（水污染防治）甲级；环境污染治理证书（大气乙级）等",
+   research:"环保咨询、专项规划、环保管家、环境治理、环境检测、生态修复与生物多样性、风险预案、水土保持；中心实验室、交竣工验收、地基基础检测、路况技术评定、桥梁荷载试验、桥梁及隧道施工监控、桥梁健康监测",
+   coop:["工程咨询"],mode:["技术服务"],resources:"技术成果",
+   cases:"湖北碾盘山水利水电枢纽工程；十堰经镇坪至巫溪高速鲍峡至溢水段；仙桃高新区规划环评跟踪评价；湖北省内河航道规划环评；五峰国家生态文明建设示范县规划；宜昌港总体规划环评；十堰中心城区水资源配置工程环评；鄂州港总体规划环评；仙桃生活垃圾焚烧发电一期（扩建）；华中表面处理循环经济产业园；广汽自主品牌技改项目；姚家港工业废物处理及资源化项目；咸宁黑臭水体整治示范城市申报；东湖生态旅游风景区土壤环境质量调查；武汉四环线青山长江公路大桥桥梁荷载试验；京珠高速桥梁定期检查；湖北省普通公路桥梁检测等",
+   dept:"",center:"",remark:"",date:""},
+
+  {id:24,name:"中国乡村发展志愿服务促进会",type:"社会团体",industry:["农业农村"],contact:"李洪杰",phone:"13811586571",
+   intro:"2016年4月成立（原中国扶贫志愿服务促进会），2021年2月荣获中共中央国务院全国脱贫攻坚先进集体，后更名为中国乡村发展志愿服务促进会。围绕国家三农工作部署，面向三农、面向基层，突出中西部地区、突出困难群体，开展社会扶贫网、两病一学项目、乡村振兴两项工程，扩展土地全域治理、矿山修复、和美乡村建设、盐碱地治理等工作。",
+   qualification:"2021年全国脱贫攻坚先进集体；2018、2019年全国脱贫攻坚奖组织创新奖；2020年最佳志愿服务组织；2021年第十一届中华慈善奖",
+   research:"数字乡村建设、公益项目、产业帮扶、消费帮扶、土地全域治理、盐碱地/酸性土壤治理、黑土地保护、培训",
+   coop:["产业化落地"],mode:["投资合作"],resources:"助农产业导入、农业部涉农资金整合和项目补助资金叠加、整合地方资源、社会资源和银行资源、项目施工",
+   cases:"自然资源部国土整治中心（2025年12月签署战略合作协议，合作全域土地综合整治、生态保护修复、和美乡村建设等）；农业农村部耕地质量和农田工程监督保护中心（2026年3月签署战略合作协议，高标准农田建设、盐碱地治理）；山西省、陕西省老区建设促进会（2024年8月、2025年5月签署合作备忘录）；京东集团（2026年4月签署战略合作协议，建设运营“京东全国消费帮扶馆”）",
+   dept:"",center:"",remark:"",date:""},
+
+  {id:25,name:"青岛市勘察测绘研究院",type:"事业单位",industry:["其他"],contact:"张传军",phone:"18660222157",
+   intro:"1951年建院，隶属于青岛市自然资源和规划局，国家级“守合同重信用”企业、高新技术企业、山东省和青岛市认定企业技术中心、科技事业单位档案管理国家一级单位，通过质量/职业健康安全/环境管理三体系认证。商务部认定的国家首批“对外援助成套项目工程勘察骨干企业”、全国地理信息百强企业、山东省建筑业全链条龙头骨干企业、齐鲁建造品牌企业。主要承担工程测量、界线与不动产测绘、摄影测量与遥感、海洋测绘、地理信息系统工程、互联网地图服务、地图编制、自然资源调查监测、信息系统集成、岩土工程勘察（含海洋工程勘察）、设计、咨询、治理、检测、监测以及地质灾害评估和治理工程勘查设计、生态保护修复、土地整治等多专业生产科研项目。",
+   qualification:"工程勘察综合类甲级、测绘甲级、地质灾害防治甲级、地基基础工程施工壹级、涉密信息系统集成乙级、海洋工程勘察乙级；CMA、CNAS认定认可",
+   research:"勘察、测绘、地理信息、生态保护修复、土地整治",
+   coop:["工程咨询"],mode:["技术服务"],
+   resources:"在岗职工660人，专业技术人才占80%以上，博士硕士280余名，工程技术应用研究员43名，高级工程师280余名，注册土木（岩土）工程师45名，注册测绘师164名，其他注册人员50余人；享受国务院政府特殊津贴专家2名、泰山产业领军人才1名、山东省工程勘察设计大师3名；13个科技创新平台（国家级/部级3个、省级5个、市级5个）",
+   cases:"",dept:"",center:"",remark:"",date:""}
+];
+
+/* ========== 以下为逻辑代码，一般无需修改 ========== */
+const $ = s => document.querySelector(s);
+const state = { kw:"", qual:"", type:"", industry:"", coop:"", mode:"" };
+
+// 初始化下拉选项
+function unique(arr){ return [...new Set(arr)].sort(); }
+function initSelects(){
+  const types = unique(DATA.flatMap(d=>[d.type].filter(Boolean)));
+  const inds = unique(DATA.flatMap(d=>d.industry||[]));
+  const coops = unique(DATA.flatMap(d=>d.coop||[]));
+  const modes = unique(DATA.flatMap(d=>d.mode||[]));
+  types.forEach(v=>$("#fType").append(`<option>${v}</option>`));
+  inds.forEach(v=>$("#fIndustry").append(`<option>${v}</option>`));
+  coops.forEach(v=>$("#fCoop").append(`<option>${v}</option>`));
+  modes.forEach(v=>$("#fMode").append(`<option>${v}</option>`));
+}
+
+// 统计
+function renderStats(){
+  const total = DATA.length;
+  const byType = {};
+  DATA.forEach(d=>{ byType[d.type]=(byType[d.type]||0)+1; });
+  const typeStr = Object.entries(byType).map(([k,v])=>`${k} ${v}`).join(" · ");
+  $("#stats").innerHTML = `
+    <div class="stat"><div class="num">${total}</div><div class="lbl">登记单位总数</div></div>
+    <div class="stat"><div class="num">${unique(DATA.flatMap(d=>d.industry||[])).length}</div><div class="lbl">覆盖行业/领域</div></div>
+    <div class="stat"><div class="num">${unique(DATA.flatMap(d=>d.qualification? d.qualification.split(/[、,，;；]/):[])).length}+</div><div class="lbl">资质关键词条目</div></div>
+    <div class="stat"><div class="num" style="font-size:13px;line-height:1.5;padding-top:2px">${typeStr}</div><div class="lbl">单位类型分布</div></div>`;
+}
+
+// 高亮
+function hl(text, kw){
+  if(!kw) return text || "";
+  const safe = kw.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  return (text||"").replace(new RegExp(safe,"gi"), m=>`<mark>${m}</mark>`);
+}
+
+// 筛选
+function filterData(){
+  const kw = state.kw.trim().toLowerCase();
+  const qual = state.qual.trim().toLowerCase();
+  return DATA.filter(d=>{
+    if(state.type && d.type !== state.type) return false;
+    if(state.industry && !(d.industry||[]).includes(state.industry)) return false;
+    if(state.coop && !(d.coop||[]).includes(state.coop)) return false;
+    if(state.mode && !(d.mode||[]).includes(state.mode)) return false;
+    const allText = [d.name,d.type,...(d.industry||[]),d.contact,d.phone,d.intro,d.qualification,d.research,...(d.coop||[]),...(d.mode||[]),d.resources,d.cases,d.dept,d.center,d.remark].join(" ").toLowerCase();
+    if(kw && !allText.includes(kw)) return false;
+    if(qual && !(d.qualification||"").toLowerCase().includes(qual)) return false;
+    return true;
+  });
+}
+
+// 渲染卡片
+function renderCards(list){
+  $("#info").textContent = `共找到 ${list.length} 家单位`;
+  if(!list.length){ $("#cards").innerHTML = `<div class="empty">没有匹配的单位，试试调整关键词或筛选条件</div>`; return; }
+  $("#cards").innerHTML = list.map(d=>{
+    const tags = [
+      `<span class="tag">${d.type}</span>`,
+      ...(d.industry||[]).map(i=>`<span class="tag gray">${i}</span>`),
+      ...(d.coop||[]).slice(0,3).map(c=>`<span class="tag warn">${c}</span>`)
+    ].join("");
+    const qualShort = (d.qualification||"").slice(0,60) + ((d.qualification||"").length>60?"…":"");
+    return `<div class="card" data-id="${d.id}">
+      <div class="name">${hl(d.name, state.kw)}</div>
+      <div class="tags">${tags}</div>
+      <div class="meta"><b>联系人：</b>${hl(d.contact||"-", state.kw)} &nbsp; <b>电话：</b>${hl(d.phone||"-", state.kw)}</div>
+      <div class="meta"><b>主要方向：</b>${hl((d.research||"").slice(0,55), state.kw)}${(d.research||"").length>55?"…":""}</div>
+      <div class="qual-line">🏅 ${hl(qualShort, state.qual || state.kw)}</div>
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".card").forEach(c=>{
+    c.onclick = ()=> openModal(+c.dataset.id);
+  });
+}
+
+// 详情
+function openModal(id){
+  const d = DATA.find(x=>x.id===id);
+  if(!d) return;
+  $("#mTitle").textContent = d.name;
+  const F = (k,v)=> v ? `<div class="field"><div class="k">${k}</div><div class="v">${v}</div></div>` : "";
+  $("#mBody").innerHTML = `
+    ${F("单位类型", d.type)}
+    ${F("所属行业/领域", (d.industry||[]).join("、"))}
+    ${F("联系人 / 电话", `${d.contact||"-"}　${d.phone||""}`)}
+    ${F("单位简介 / 主营业务", d.intro)}
+    ${F("资质与认证", d.qualification)}
+    ${F("主要科研 / 业务方向", d.research)}
+    ${F("合作方向", (d.coop||[]).join("、"))}
+    ${F("可提供资源 / 能力", d.resources)}
+    ${F("拟合作方式", (d.mode||[]).join("、"))}
+    ${F("已有合作案例", d.cases)}
+    ${F("中心对接部门", d.dept)}
+    ${F("中心联系人 / 联系方式", d.center)}
+    ${F("备注", d.remark)}
+    ${F("登记日期", d.date)}
+  `;
+  $("#modalBg").classList.add("show");
+}
+
+// 导出 CSV
+function exportCSV(){
+  const list = filterData();
+  const header = ["序号","单位全称","单位类型","所属行业/领域","联系人","联系电话","单位简介/主营业务","资质与认证","主要科研/业务方向","合作方向","可提供资源/能力","拟合作方式","已有合作案例","中心对接部门","中心联系人/联系方式","备注","登记日期"];
+  const rows = list.map(d=>[
+    d.id,d.name,d.type,(d.industry||[]).join("、"),d.contact,d.phone,d.intro,d.qualification,d.research,
+    (d.coop||[]).join("、"),d.resources,(d.mode||[]).join("、"),d.cases,d.dept,d.center,d.remark,d.date
+  ]);
+  const csv = [header, ...rows].map(r=>r.map(v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `合作伙伴筛选结果_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// 绑定事件
+function bind(){
+  const sync = ()=>{ state.kw=$("#kw").value; state.qual=$("#qual").value;
+    state.type=$("#fType").value; state.industry=$("#fIndustry").value;
+    state.coop=$("#fCoop").value; state.mode=$("#fMode").value;
+    renderCards(filterData()); };
+  ["#kw","#qual"].forEach(s=>$(s).addEventListener("input", sync));
+  ["#fType","#fIndustry","#fCoop","#fMode"].forEach(s=>$(s).addEventListener("change", sync));
+  $("#reset").onclick = ()=>{ $("#kw").value=""; $("#qual").value="";
+    ["#fType","#fIndustry","#fCoop","#fMode"].forEach(s=>$(s).value="");
+    sync(); };
+  $("#export").onclick = exportCSV;
+  $("#mClose").onclick = ()=> $("#modalBg").classList.remove("show");
+  $("#modalBg").onclick = e=>{ if(e.target.id==="modalBg") $("#modalBg").classList.remove("show"); };
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape") $("#modalBg").classList.remove("show"); });
+}
+
+initSelects(); renderStats(); renderCards(DATA); bind();
+</script>
+</body>
+</html>
