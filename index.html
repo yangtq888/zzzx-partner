@@ -486,10 +486,16 @@ const INITIAL_USERS = {
 
 function getUsers() {
   const saved = localStorage.getItem('custom_users');
-  if (saved) {
-    return { ...INITIAL_USERS, ...JSON.parse(saved) };
-  }
-  return { ...INITIAL_USERS };
+  const custom = saved ? JSON.parse(saved) : {};
+  const deletedBuiltin = JSON.parse(localStorage.getItem('deleted_builtin_users') || '[]');
+  const merged = { ...INITIAL_USERS, ...custom };
+  // 过滤掉已删除的内置用户
+  deletedBuiltin.forEach(name => {
+    if (merged[name] && !custom[name]) {
+      delete merged[name];
+    }
+  });
+  return merged;
 }
 
 const loginPage = document.getElementById('loginPage');
@@ -608,12 +614,8 @@ function renderUserList() {
   const listEl = document.getElementById('userList');
   const countEl = document.getElementById('userCount');
 
-  // 内置初始用户 + 自定义用户，其中 admin 不可删除；内置的初始普通用户也可以删除（删除后通过 localStorage 记录移除）
   const names = Object.keys(users).sort((a, b) => a === 'admin' ? -1 : b === 'admin' ? 1 : a.localeCompare(b));
   countEl.textContent = names.length;
-
-  // 已删除的内置用户记录
-  const deletedBuiltin = JSON.parse(localStorage.getItem('deleted_builtin_users') || '[]');
 
   listEl.innerHTML = names.map(name => {
     const isAdmin = name === 'admin';
@@ -625,7 +627,6 @@ function renderUserList() {
     </div>`;
   }).join('');
 
-  // 绑定删除按钮
   listEl.querySelectorAll('.u-del').forEach(btn => {
     btn.addEventListener('click', () => {
       const name = btn.dataset.name;
@@ -638,17 +639,15 @@ function renderUserList() {
 
 function deleteUser(name) {
   const users = getUsers();
-  if (name === 'admin') return; // 再次保护
+  if (name === 'admin') return;
   if (!users[name]) return;
 
-  // 从自定义用户中删除
   const saved = localStorage.getItem('custom_users');
   let customUsers = saved ? JSON.parse(saved) : {};
   if (customUsers[name]) {
     delete customUsers[name];
     localStorage.setItem('custom_users', JSON.stringify(customUsers));
   } else {
-    // 内置初始用户：记录到已删除列表，getUsers 里需过滤
     const deletedBuiltin = JSON.parse(localStorage.getItem('deleted_builtin_users') || '[]');
     if (!deletedBuiltin.includes(name)) {
       deletedBuiltin.push(name);
@@ -656,7 +655,6 @@ function deleteUser(name) {
     }
   }
 
-  // 如果删除的是当前登录用户（非 admin 不会出现此入口，保险起见）
   if (name === currentUser) {
     sessionStorage.removeItem('isLoggedIn');
     sessionStorage.removeItem('currentUser');
@@ -666,15 +664,6 @@ function deleteUser(name) {
 
   renderUserList();
 }
-
-// 需要修改 getUsers 以支持屏蔽已删除的内置用户
-// 注意：原 getUsers 在脚本顶部已定义，这里用同名函数会冲突，所以采用替换实现
-// 为避免重复声明，删除上方 getUsers 定义，统一使用下面这个（在脚本末尾重写会影响前面调用，所以这里直接改造）
-// 实际做法：在文件末尾用函数提升覆盖不行（const 不可重复），因此把原 getUsers 改为可过滤 deleted_builtin_users。
-
-/* 说明：上方 getUsers 已经定义，为了支持删除内置用户，我们在其内部逻辑中补充过滤。
-   由于不能重复声明 const/function 同名，这里把过滤逻辑放到 getUsers 的 saved 合并之后。
-   为实现这一点，下面重写一个 wrapper 并替换全局引用不现实，因此直接修改上方 getUsers 的实现——见文件最终版本。 */
 
 document.getElementById('userManageBtn').addEventListener('click', () => {
   if (currentUser !== 'admin') return;
@@ -715,7 +704,6 @@ document.getElementById('registerUserBtn').addEventListener('click', () => {
     return;
   }
 
-  // 如果是曾经删除的内置用户，注册时要从 deleted 列表移除
   const deletedBuiltin = JSON.parse(localStorage.getItem('deleted_builtin_users') || '[]');
   const idx = deletedBuiltin.indexOf(name);
   if (idx !== -1) {
@@ -1038,7 +1026,7 @@ document.getElementById('saveFormBtn').addEventListener('click', () => {
 
   if (editingName === null) {
     partnerData.id = Date.now();
-    DATA.unshift(partnerData);
+    DATA.push(partnerData); // 新增单位放到列表最后
   } else {
     const idx = DATA.findIndex(x => x.name === editingName);
     if (idx === -1) { alert('原单位已不存在，无法保存修改'); return; }
